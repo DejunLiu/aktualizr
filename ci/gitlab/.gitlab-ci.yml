@@ -1,12 +1,13 @@
 stages:
   - Setup Docker
+  - GIT submodule update
   - Build and Test
   
 variables:
   # The docker images will be specific to the branch we are pushing to
   UBUNTU_BIONIC_CI_IMAGE: ${CI_REGISTRY_IMAGE}:ci-${CI_COMMIT_REF_SLUG}-UBUNTU-BIONIC
   DEBIAN_TESTING_CI_IMAGE: ${CI_REGISTRY_IMAGE}:ci-${CI_COMMIT_REF_SLUG}-DEBIAN_TESTING
-
+  
 # Build the Docker image that will be used in subsequent CI/CD stages
 Setup Docker:
   image: docker:latest
@@ -25,6 +26,13 @@ Setup Docker:
     - docker pull "${CI_REGISTRY_IMAGE}:ci-master" || true
     - docker build --pull --cache-from "${CI_REGISTRY_IMAGE}:ci-master" --cache-from "$DEBIAN_TESTING_CI_IMAGE" -f ${CI_PROJECT_DIR}/docker/Dockerfile.debian.testing -t "$DEBIAN_TESTING_CI_IMAGE" .
     - docker push "$DEBIAN_TESTING_CI_IMAGE"
+    
+GIT submodule update:
+  # GIT submodule update
+  image: "$UBUNTU_BIONIC_CI_IMAGE"
+  stage: GIT submodule update
+  script:
+    - git submodule update --init --recursive
     
 Test with p11 and coverage:
   # Build and test aktualizr with p11 and generate coverage reports
@@ -48,7 +56,6 @@ Test without p11:
   image: "$UBUNTU_BIONIC_CI_IMAGE"
   stage: Build and Test
   script:
-    - git submodule update --init --recursive
     - ${CI_PROJECT_DIR}/scripts/test.sh
     
 Debian build and test:
@@ -66,8 +73,6 @@ Debian build and test:
   image: "$DEBIAN_TESTING_CI_IMAGE"
   stage: Build and Test
   script:
-    - ls -lrt
-    - git submodule update --init --recursive
     - ${CI_PROJECT_DIR}/scripts/test.sh
     
 Bionic Package:
