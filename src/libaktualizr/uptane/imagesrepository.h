@@ -11,9 +11,10 @@ class ImagesRepository : public RepositoryCommon {
 
   void resetMeta();
 
-  bool verifyTargets(const std::string& targets_raw);
+  bool verifyTargets(const std::string& targets_raw, bool top_level = true);
   bool targetsExpired() { return targets.isExpired(TimeStamp::Now()); }
   int64_t targetsSize() { return snapshot.targets_size(); }
+  std::vector<Delegation> delegations() { return targets.delegations_; }
   std::unique_ptr<Uptane::Target> getTarget(const Uptane::Target& director_target);
 
   bool verifyTimestamp(const std::string& timestamp_raw);
