@@ -534,7 +534,7 @@ bool SotaUptaneClient::updateImagesMeta() {
       local_version = -1;
     }
 
-    if (!images_repo.verifyTargets(images_targets)) {
+    if (!images_repo.verifyTargets(images_targets, "targets")) {
       last_exception = images_repo.getLastException();
       return false;
     }
@@ -545,14 +545,14 @@ bool SotaUptaneClient::updateImagesMeta() {
       storage->storeNonRoot(images_targets, Uptane::RepositoryType::Image(), Uptane::Role::Targets());
     }
 
-    if (images_repo.targetsExpired()) {
+    if (images_repo.targetsExpired("targets")) {
       last_exception = Uptane::ExpiredMetadata("repo", "targets");
       return false;
     }
   }
 
   // Update Images delegated Targets Metadata
-  for (const Uptane::Delegation &delegation : images_repo.delegations()) {
+  for (const Uptane::Delegation &delegation : images_repo.delegations("targets")) {
     std::string images_delegated;
 
     if (!uptane_fetcher->fetchLatestRole(&images_delegated, Uptane::kMaxImagesTargetsSize,
@@ -562,16 +562,16 @@ bool SotaUptaneClient::updateImagesMeta() {
     int remote_version = Uptane::extractVersionUntrusted(images_delegated);
 
     int local_version;
-    std::string images_targets_stored;
+    std::string images_delegated_stored;
     // TODO: will this work?
-    if (storage->loadNonRoot(&images_targets_stored, Uptane::RepositoryType::Image(),
+    if (storage->loadNonRoot(&images_delegated_stored, Uptane::RepositoryType::Image(),
                              Uptane::Role::Delegated(delegation.name_))) {
-      local_version = Uptane::extractVersionUntrusted(images_targets_stored);
+      local_version = Uptane::extractVersionUntrusted(images_delegated_stored);
     } else {
       local_version = -1;
     }
 
-    if (!images_repo.verifyTargets(images_delegated)) {
+    if (!images_repo.verifyTargets(images_delegated, delegation.name_)) {
       last_exception = images_repo.getLastException();
       return false;
     }
@@ -581,13 +581,13 @@ bool SotaUptaneClient::updateImagesMeta() {
     } else if (local_version < remote_version) {
       // TODO: will this work?
       // Store the metadata (in meta table? with new meta_type with delegated name?)
+      // Maybe better to use a separate table.
       storage->storeNonRoot(images_delegated, Uptane::RepositoryType::Image(),
                             Uptane::Role::Delegated(delegation.name_));
     }
 
-    // TODO: will this work?
-    if (images_repo.targetsExpired()) {
-      last_exception = Uptane::ExpiredMetadata("repo", "targets");
+    if (images_repo.targetsExpired(delegation.name_)) {
+      last_exception = Uptane::ExpiredMetadata("repo", "delegated targets");
       return false;
     }
   }
@@ -701,12 +701,12 @@ bool SotaUptaneClient::checkImagesMetaOffline() {
       return false;
     }
 
-    if (!images_repo.verifyTargets(images_targets)) {
+    if (!images_repo.verifyTargets(images_targets, "targets")) {
       last_exception = images_repo.getLastException();
       return false;
     }
 
-    if (images_repo.targetsExpired()) {
+    if (images_repo.targetsExpired("targets")) {
       last_exception = Uptane::ExpiredMetadata("repo", "targets");
       return false;
     }

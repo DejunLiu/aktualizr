@@ -8,6 +8,7 @@
 #include <functional>
 #include <ostream>
 #include <set>
+#include <vector>
 #include "uptane/exceptions.h"
 
 #include "crypto/crypto.h"
