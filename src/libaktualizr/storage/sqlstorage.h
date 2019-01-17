@@ -38,11 +38,11 @@ class SQLStorage : public INvStorage {
   bool loadTlsCert(std::string* cert) override;
   bool loadTlsPkey(std::string* pkey) override;
 
-  void storeRoot(const std::string& data, Uptane::RepositoryType repo, Uptane::Version version) override;
-  bool loadRoot(std::string* data, Uptane::RepositoryType repo, Uptane::Version version) override;
-  void storeNonRoot(const std::string& data, Uptane::RepositoryType repo, Uptane::Role role) override;
-  bool loadNonRoot(std::string* data, Uptane::RepositoryType repo, Uptane::Role role) override;
-  void clearNonRootMeta(Uptane::RepositoryType repo) override;
+  void storeRoot(const std::string& data, const Uptane::RepositoryType repo, const Uptane::Version version) override;
+  bool loadRoot(std::string* data, const Uptane::RepositoryType repo, const Uptane::Version version) override;
+  void storeNonRoot(const std::string& data, const Uptane::RepositoryType repo, const Uptane::Role role) override;
+  bool loadNonRoot(std::string* data, const Uptane::RepositoryType repo, const Uptane::Role role) override;
+  void clearNonRootMeta(const Uptane::RepositoryType repo) override;
   void clearMetadata() override;
   void storeDelegation(const std::string& data, const Uptane::Role role) override;
   bool loadDelegation(std::string* data, const Uptane::Role role) override;
@@ -89,7 +89,7 @@ class SQLStorage : public INvStorage {
  private:
   SQLite3Guard dbConnection() const;
   // request info
-  void cleanMetaVersion(Uptane::RepositoryType repo, Uptane::Role role);
+  void cleanMetaVersion(const Uptane::RepositoryType repo, const Uptane::Role role);
   bool readonly_{false};
 };
 

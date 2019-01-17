@@ -133,14 +133,14 @@ class INvStorage {
   virtual bool loadTlsPkey(std::string* cert) = 0;
   virtual void clearTlsCreds() = 0;
 
-  virtual void storeRoot(const std::string& data, Uptane::RepositoryType repo, Uptane::Version version) = 0;
-  virtual bool loadRoot(std::string* data, Uptane::RepositoryType repo, Uptane::Version version) = 0;
-  bool loadLatestRoot(std::string* data, Uptane::RepositoryType repo) {
+  virtual void storeRoot(const std::string& data, const Uptane::RepositoryType repo, const Uptane::Version version) = 0;
+  virtual bool loadRoot(std::string* data, const Uptane::RepositoryType repo, const Uptane::Version version) = 0;
+  bool loadLatestRoot(std::string* data, const Uptane::RepositoryType repo) {
     return loadRoot(data, repo, Uptane::Version());
   };
-  virtual void storeNonRoot(const std::string& data, Uptane::RepositoryType repo, Uptane::Role role) = 0;
-  virtual bool loadNonRoot(std::string* data, Uptane::RepositoryType repo, Uptane::Role role) = 0;
-  virtual void clearNonRootMeta(Uptane::RepositoryType repo) = 0;
+  virtual void storeNonRoot(const std::string& data, const Uptane::RepositoryType repo, const Uptane::Role role) = 0;
+  virtual bool loadNonRoot(std::string* data, const Uptane::RepositoryType repo, const Uptane::Role role) = 0;
+  virtual void clearNonRootMeta(const Uptane::RepositoryType repo) = 0;
   virtual void clearMetadata() = 0;
   virtual void storeDelegation(const std::string& data, const Uptane::Role role) = 0;
   virtual bool loadDelegation(std::string* data, const Uptane::Role role) = 0;

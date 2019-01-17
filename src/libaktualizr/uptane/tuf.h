@@ -93,7 +93,7 @@ class Version {
   Version() : version_(ANY_VERSION) {}
   explicit Version(int v) : version_(v) {}
   std::string RoleFileName(Role role) const;
-  int version() { return version_; }
+  int version() const { return version_; }
 
  private:
   static const int ANY_VERSION = -1;

@@ -12,7 +12,7 @@
 boost::filesystem::path SQLStorage::dbPath() const { return config_.sqldb_path.get(config_.path); }
 
 // find metadata with version set to -1 (e.g. after migration) and assign proper version to it
-void SQLStorage::cleanMetaVersion(Uptane::RepositoryType repo, Uptane::Role role) {
+void SQLStorage::cleanMetaVersion(const Uptane::RepositoryType repo, const Uptane::Role role) {
   SQLite3Guard db = dbConnection();
 
   if (!db.beginTransaction()) {
@@ -398,7 +398,7 @@ bool SQLStorage::loadTlsPkey(std::string* pkey) {
   return true;
 }
 
-void SQLStorage::storeRoot(const std::string& data, Uptane::RepositoryType repo, Uptane::Version version) {
+void SQLStorage::storeRoot(const std::string& data, const Uptane::RepositoryType repo, const Uptane::Version version) {
   SQLite3Guard db = dbConnection();
 
   if (!db.beginTransaction()) {
@@ -427,7 +427,7 @@ void SQLStorage::storeRoot(const std::string& data, Uptane::RepositoryType repo,
   db.commitTransaction();
 }
 
-void SQLStorage::storeNonRoot(const std::string& data, Uptane::RepositoryType repo, Uptane::Role role) {
+void SQLStorage::storeNonRoot(const std::string& data, const Uptane::RepositoryType repo, const Uptane::Role role) {
   SQLite3Guard db = dbConnection();
 
   if (!db.beginTransaction()) {
@@ -455,7 +455,7 @@ void SQLStorage::storeNonRoot(const std::string& data, Uptane::RepositoryType re
   db.commitTransaction();
 }
 
-bool SQLStorage::loadRoot(std::string* data, Uptane::RepositoryType repo, Uptane::Version version) {
+bool SQLStorage::loadRoot(std::string* data, const Uptane::RepositoryType repo, const Uptane::Version version) {
   SQLite3Guard db = dbConnection();
 
   // version < 0 => latest metadata requested
@@ -497,7 +497,7 @@ bool SQLStorage::loadRoot(std::string* data, Uptane::RepositoryType repo, Uptane
   return true;
 }
 
-bool SQLStorage::loadNonRoot(std::string* data, Uptane::RepositoryType repo, Uptane::Role role) {
+bool SQLStorage::loadNonRoot(std::string* data, const Uptane::RepositoryType repo, const Uptane::Role role) {
   SQLite3Guard db = dbConnection();
 
   auto statement = db.prepareStatement<int, int>(
@@ -519,7 +519,7 @@ bool SQLStorage::loadNonRoot(std::string* data, Uptane::RepositoryType repo, Upt
   return true;
 }
 
-void SQLStorage::clearNonRootMeta(Uptane::RepositoryType repo) {
+void SQLStorage::clearNonRootMeta(const Uptane::RepositoryType repo) {
   SQLite3Guard db = dbConnection();
 
   auto del_statement =
