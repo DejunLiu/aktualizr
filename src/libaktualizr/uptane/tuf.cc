@@ -226,7 +226,7 @@ std::ostream &Uptane::operator<<(std::ostream &os, const Target &t) {
 
 void Uptane::BaseMeta::init(const Json::Value &json) {
   if (!json.isObject() || !json.isMember("signed")) {
-    LOG_ERROR << "BM FAILURE";
+    LOG_ERROR << "Failure during base metadata initialization from json";
     throw Uptane::InvalidMetadata("", "", "invalid metadata json");
   }
 
@@ -240,12 +240,12 @@ void Uptane::BaseMeta::init(const Json::Value &json) {
 }
 Uptane::BaseMeta::BaseMeta(const Json::Value &json) { init(json); }
 
-Uptane::BaseMeta::BaseMeta(RepositoryType repo, const Json::Value &json, Root &root) {
+Uptane::BaseMeta::BaseMeta(RepositoryType repo, const Json::Value &json, std::shared_ptr<MetaWithKeys> root) {
   if (!json.isObject() || !json.isMember("signed")) {
     throw Uptane::InvalidMetadata("", "", "invalid metadata json");
   }
 
-  root.UnpackSignedObject(repo, json);
+  root->UnpackSignedObject(repo, json);
 
   init(json);
 }
@@ -298,10 +298,17 @@ void Uptane::Targets::init(const Json::Value &json) {
   }
 }
 
-Uptane::Targets::Targets(const Json::Value &json) : BaseMeta(json) { init(json); }
+Uptane::Targets::Targets(const Json::Value &json) : MetaWithKeys(json) { init(json); }
 
-Uptane::Targets::Targets(RepositoryType repo, const Json::Value &json, Root &root) : BaseMeta(repo, json, root) {
+Uptane::Targets::Targets(RepositoryType repo, const Json::Value &json, std::shared_ptr<MetaWithKeys> root)
+    : MetaWithKeys(repo, json, root) {
   init(json);
+}
+
+void Uptane::Targets::UnpackSignedObject(const RepositoryType repo, const Json::Value &signed_object) {
+  (void)repo;
+  (void)signed_object;
+  // TODO!
 }
 
 void Uptane::TimestampMeta::init(const Json::Value &json) {
@@ -323,7 +330,7 @@ void Uptane::TimestampMeta::init(const Json::Value &json) {
 
 Uptane::TimestampMeta::TimestampMeta(const Json::Value &json) : BaseMeta(json) { init(json); }
 
-Uptane::TimestampMeta::TimestampMeta(RepositoryType repo, const Json::Value &json, Root &root)
+Uptane::TimestampMeta::TimestampMeta(RepositoryType repo, const Json::Value &json, std::shared_ptr<MetaWithKeys> root)
     : BaseMeta(repo, json, root) {
   init(json);
 }
@@ -354,7 +361,8 @@ void Uptane::Snapshot::init(const Json::Value &json) {
 
 Uptane::Snapshot::Snapshot(const Json::Value &json) : BaseMeta(json) { init(json); }
 
-Uptane::Snapshot::Snapshot(RepositoryType repo, const Json::Value &json, Root &root) : BaseMeta(repo, json, root) {
+Uptane::Snapshot::Snapshot(RepositoryType repo, const Json::Value &json, std::shared_ptr<MetaWithKeys> root)
+    : BaseMeta(repo, json, root) {
   init(json);
 }
 
@@ -365,7 +373,8 @@ bool MetaPack::isConsistent() const {
       Uptane::Root original_root(director_root);
       Uptane::Root new_root(RepositoryType::Director(), director_root.original(), new_root);
       if (director_targets.original() != Json::nullValue) {
-        Uptane::Targets(RepositoryType::Director(), director_targets.original(), original_root);
+        Uptane::Targets(RepositoryType::Director(), director_targets.original(),
+                        std::make_shared<MetaWithKeys>(original_root));
       }
     }
   } catch (const std::logic_error &exc) {

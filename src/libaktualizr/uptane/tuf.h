@@ -67,6 +67,7 @@ class Role {
   explicit Role(const std::string &role_name, bool delegation = false);
   std::string ToString() const;
   int ToInt() const { return static_cast<int>(role_); }
+  // TODO: review for delegation "equality":
   bool operator==(const Role &other) const { return role_ == other.role_; }
   bool operator!=(const Role &other) const { return !(*this == other); }
   bool operator<(const Role &other) const { return role_ < other.role_; }
@@ -273,12 +274,12 @@ class Target {
 std::ostream &operator<<(std::ostream &os, const Target &t);
 
 /* Metadata objects */
-class Root;
+class MetaWithKeys;
 class BaseMeta {
  public:
   BaseMeta() = default;
   explicit BaseMeta(const Json::Value &json);
-  BaseMeta(RepositoryType repo, const Json::Value &json, Root &root);
+  BaseMeta(RepositoryType repo, const Json::Value &json, std::shared_ptr<MetaWithKeys> root);
   int version() const { return version_; }
   TimeStamp expiry() const { return expiry_; }
   bool isExpired(const TimeStamp &now) const { return expiry_.IsExpiredAt(now); }
@@ -295,21 +296,25 @@ class BaseMeta {
   void init(const Json::Value &json);
 };
 
-// Implemented in uptane/root.cc
-class Root : public BaseMeta {
+class MetaWithKeys : public BaseMeta {
  public:
   enum class Policy { kRejectAll, kAcceptAll, kCheck };
   /**
-   * An empty Root, that either accepts or rejects everything
+   * An empty metadata object that could contain keys.
    */
-  explicit Root(Policy policy = Policy::kRejectAll) : policy_(policy) { version_ = 0; }
+  MetaWithKeys() { version_ = 0; }
   /**
-   * A 'real' root that implements TUF signature validation
-   * @param repo - Repository type (only used to improve the error messages)
+   * A 'real' metadata object that can contain keys (root or targets with
+   * delegations) and that implements TUF signature validation.
    * @param json - The contents of the 'signed' portion
    */
-  Root(RepositoryType repo, const Json::Value &json);
-  Root(RepositoryType repo, const Json::Value &json, Root &root);
+  MetaWithKeys(const Json::Value &json);
+  MetaWithKeys(RepositoryType repo, const Json::Value &json, std::shared_ptr<MetaWithKeys> root);
+
+  virtual ~MetaWithKeys() = default;
+
+  void ParseKeys(const RepositoryType repo, const Json::Value &keys);
+  void ParseRoles(const RepositoryType repo, const Json::Value &roles, const std::string &meta_role);
 
   /**
    * Take a JSON blob that contains a signatures/signed component that is supposedly for a given role, and check that is
@@ -324,7 +329,54 @@ class Root : public BaseMeta {
    * @param signed_object
    * @return
    */
-  void UnpackSignedObject(RepositoryType repo, const Json::Value &signed_object);
+  virtual void UnpackSignedObject(RepositoryType repo, const Json::Value &signed_object);
+
+  bool operator==(const MetaWithKeys &rhs) const {
+    return version_ == rhs.version_ && expiry_ == rhs.expiry_ && keys_ == rhs.keys_ &&
+           keys_for_role_ == rhs.keys_for_role_ && thresholds_for_role_ == rhs.thresholds_for_role_;
+  }
+
+ protected:
+  static const int64_t kMinSignatures = 1;
+  static const int64_t kMaxSignatures = 1000;
+
+  std::map<KeyId, PublicKey> keys_;
+  std::set<std::pair<Role, KeyId> > keys_for_role_;
+  std::map<Role, int64_t> thresholds_for_role_;
+};
+
+// Implemented in uptane/root.cc
+class Root : public MetaWithKeys {
+ public:
+  /**
+   * An empty Root, that either accepts or rejects everything
+   */
+  explicit Root(Policy policy = Policy::kRejectAll) : policy_(policy) { version_ = 0; }
+  /**
+   * A 'real' root that implements TUF signature validation
+   * @param repo - Repository type (only used to improve the error messages)
+   * @param json - The contents of the 'signed' portion
+   */
+  Root(RepositoryType repo, const Json::Value &json);
+  Root(RepositoryType repo, const Json::Value &json, Root &root);
+
+  virtual ~Root() = default;
+
+  /**
+   * Take a JSON blob that contains a signatures/signed component that is supposedly for a given role, and check that is
+   * suitably signed.
+   * If it is, it returns the contents of the 'signed' part.
+   *
+   * It performs the following checks:
+   * * "_type" matches the given role
+   * * "expires" is in the past (vs 'now')
+   * * The blob has valid signatures from enough keys to cross the threshold for this role
+   * @param repo - Repository type (only used to improve the error messages)
+   * @param signed_object
+   * @return
+   */
+  void UnpackSignedObject(RepositoryType repo, const Json::Value &signed_object) override;
+
   bool operator==(const Root &rhs) const {
     return version_ == rhs.version_ && expiry_ == rhs.expiry_ && keys_ == rhs.keys_ &&
            keys_for_role_ == rhs.keys_for_role_ && thresholds_for_role_ == rhs.thresholds_for_role_ &&
@@ -332,13 +384,7 @@ class Root : public BaseMeta {
   }
 
  private:
-  static const int64_t kMinSignatures = 1;
-  static const int64_t kMaxSignatures = 1000;
-
   Policy policy_;
-  std::map<KeyId, PublicKey> keys_;
-  std::set<std::pair<Role, KeyId> > keys_for_role_;
-  std::map<Role, int64_t> thresholds_for_role_;
 };
 
 struct Delegation {
@@ -349,11 +395,14 @@ struct Delegation {
   int64_t threshold_{0};
 };
 
-class Targets : public BaseMeta {
+// Also used for delegated targets.
+class Targets : public MetaWithKeys {
  public:
   explicit Targets(const Json::Value &json);
-  Targets(RepositoryType repo, const Json::Value &json, Root &root);
+  Targets(RepositoryType repo, const Json::Value &json, std::shared_ptr<MetaWithKeys> root);
   Targets() = default;
+
+  virtual void UnpackSignedObject(const RepositoryType repo, const Json::Value &signed_object);
 
   bool operator==(const Targets &rhs) const {
     return version_ == rhs.version() && expiry_ == rhs.expiry() && targets == rhs.targets;
@@ -373,7 +422,7 @@ class Targets : public BaseMeta {
 class TimestampMeta : public BaseMeta {
  public:
   explicit TimestampMeta(const Json::Value &json);
-  TimestampMeta(RepositoryType repo, const Json::Value &json, Root &root);
+  TimestampMeta(RepositoryType repo, const Json::Value &json, std::shared_ptr<MetaWithKeys> root);
   TimestampMeta() = default;
   std::vector<Hash> snapshot_hashes() const { return snapshot_hashes_; };
   int64_t snapshot_size() const { return snapshot_size_; };
@@ -390,7 +439,7 @@ class TimestampMeta : public BaseMeta {
 class Snapshot : public BaseMeta {
  public:
   explicit Snapshot(const Json::Value &json);
-  Snapshot(RepositoryType repo, const Json::Value &json, Root &root);
+  Snapshot(RepositoryType repo, const Json::Value &json, std::shared_ptr<MetaWithKeys> root);
   Snapshot() = default;
   std::vector<Hash> targets_hashes() const { return targets_hashes_; };
   int64_t targets_size() const { return targets_size_; };
