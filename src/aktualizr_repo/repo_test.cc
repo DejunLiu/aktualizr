@@ -98,6 +98,29 @@ TEST(aktualizr_repo, copy_image) {
   EXPECT_EQ(director_targets["signed"]["targets"].size(), 1);
 }
 
+TEST(aktualizr_repo, adddelegation) {
+  TemporaryDirectory temp_dir;
+  std::ostringstream keytype_stream;
+  keytype_stream << key_type;
+  std::string cmd = generate_repo_exec + " generate " + temp_dir.Path().string() + " --keytype " + keytype_stream.str();
+  std::string output;
+  int retval = Utils::shell(cmd, &output);
+  if (retval) {
+    FAIL() << "'" << cmd << "' exited with error code\n";
+  }
+  cmd = generate_repo_exec + " adddelegation " + temp_dir.Path().string() + " --keytype " + keytype_stream.str();
+  cmd += " --dname test_delegate --dpattern tests/";
+  retval = Utils::shell(cmd, &output);
+  if (retval) {
+    FAIL() << "'" << cmd << "' exited with error code\n";
+  }
+
+  EXPECT_TRUE(boost::filesystem::exists(temp_dir.Path() / "repo/image/test_delegate.json"));
+  auto targets = Utils::parseJSONFile(temp_dir.Path() / "repo/image/targets.json");
+  EXPECT_EQ(targets["signed"]["delegations"]["roles"][0]["name"].asString(), "test_delegate");
+  EXPECT_EQ(targets["signed"]["delegations"]["roles"][0]["paths"][0].asString(), "tests/");
+}
+
 TEST(aktualizr_repo, sign) {
   TemporaryDirectory temp_dir;
   std::ostringstream keytype_stream;
